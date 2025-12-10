@@ -135,6 +135,7 @@ namespace ASC_ode
    using std::sin;
    using std::cos;
    using std::log;
+   using std::exp;
 
    template <size_t N, typename T = double>
    AutoDiff<N, T> sin(const AutoDiff<N, T> &a)
@@ -160,6 +161,15 @@ namespace ASC_ode
        AutoDiff<N, T> result(log(a.value()));
        for (size_t i = 0; i < N; i++)
            result.deriv()[i] = a.deriv()[i] /(a.value());
+       return result;
+   }
+
+   template <size_t N, typename T = double>
+   AutoDiff<N, T> exp(const AutoDiff<N, T> &a)
+   {
+       AutoDiff<N, T> result(exp(a.value()));
+       for (size_t i = 0; i < N; i++)
+           result.deriv()[i] = a.deriv()[i] * exp(a.value());
        return result;
    }
 
