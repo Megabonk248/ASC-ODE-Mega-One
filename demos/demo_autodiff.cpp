@@ -1,5 +1,6 @@
 #include <iostream>
 #include <autodiff.hpp>
+#include <vector>
 
 
 using namespace ASC_ode;
@@ -10,6 +11,21 @@ T func1 (T x, T y)
 {
   return x * sin(y);
   // return 1e6 + y;
+}
+
+template <typename T>
+void LegendrePolynomials(int n, T x, std::vector<AutoDiff<1, T>>& P) {
+    if (n < 0) {
+        P.clear();
+        return;
+    }
+    P.resize(n + 1);
+    P[0] = { Variable<0>(T(1)) };
+    if (n == 0) return;
+    P[1] = { Variable<0>(x) };
+    for (int k = 2; k <= n; ++k) {
+        P[k] = ((T(2 * k - 1) * x * P[k - 1]) - T(k - 1) * P[k - 2]) / T(k);
+    }
 }
 
 
@@ -31,6 +47,13 @@ int main()
   double eps = 1e-8;
   std::cout << "numdiff df/dx = " << (func1(x + eps, y) - func1(x-eps, y)) / (2*eps) << std::endl;
   std::cout << "numdiff df/dy = " << (func1(x, y + eps) - func1(x, y-eps)) / (2*eps) << std::endl;
+
+
+  std::vector<AutoDiff<1, double>> poly(5);
+  LegendrePolynomials(5, 2.0, poly);
+  for (int i = 0; i < 5; i++) {
+    std::cout << poly[i] << std::endl;
+  }
 
 
   {
