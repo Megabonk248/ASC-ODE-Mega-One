@@ -105,6 +105,15 @@ namespace ASC_ode
        return result;
    }
 
+   template <size_t N, typename T = double>
+   AutoDiff<N, T> cos(const AutoDiff<N, T> &a)
+   {
+       AutoDiff<N, T> result(cos(a.value()));
+       for (size_t i = 0; i < N; i++)
+           result.deriv()[i] = -sin(a.value()) * a.deriv()[i];
+       return result;
+   }
+
 
 } // namespace ASC_ode
 
