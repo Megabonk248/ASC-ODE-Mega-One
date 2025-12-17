@@ -9,6 +9,7 @@ include_directories(src nanoblas/src)
 add_subdirectory (src)
 add_subdirectory (nanoblas)
 
+add_subdirectory (mechsystem)
 
 add_executable (test_ode demos/test_ode.cpp)
 target_link_libraries (test_ode PUBLIC nanoblas)
