@@ -268,8 +268,7 @@ public:
       auto dir12 = p2 - p1;
       double dist = norm(dir12);
       Vec<D> dir12_norm = 1.0 / dist * dir12; 
-      double lambda = in_x[constraint_index + mss.masses().size() * D]; 
-      std::cout << lambda << std::endl;
+      double lambda = in_x[constraint_index + mss.masses().size() * D];
 
       // add the constraints
       if (c1.type == Connector::MASS) 
@@ -288,7 +287,113 @@ public:
       fmat.row(i) *= 1.0/mss.masses()[i].mass;
   }
   
+  
   //calculates the first force derivative
+  virtual void evaluateDeriv (VectorView<double> in_x, MatrixView<double> out_df) const override
+  {
+    out_df = 0.0;
+    auto xmat = in_x.asMatrix(mss.masses().size(), D);
+
+    for (auto spring : mss.springs())
+    {
+      auto [c1,c2] = spring.connectors;
+      Vec<D> p1, p2;
+      if (c1.type == Connector::FIX)
+        p1 = mss.fixes()[c1.nr].pos;
+      else
+        p1 = xmat.row(c1.nr);
+      if (c2.type == Connector::FIX)
+        p2 = mss.fixes()[c2.nr].pos;
+      else
+        p2 = xmat.row(c2.nr);
+
+      Vec<D> dir = p2 - p1;
+      double len = norm(dir);
+      Vec<D> dir_norm = 1.0 / len * dir;
+
+      double force = spring.stiffness * (len-spring.length);
+      if (c1.type == Connector::MASS) {
+        out_df.rows(c1.nr * 3, c1.nr * 3 + 3).col(c1.nr * 3) += spring.stiffness * -p1(0) * 1.0 / len * dir_norm; // f' * v_n
+        out_df.rows(c1.nr * 3, c1.nr * 3 + 3).col(c1.nr * 3 + 1) += spring.stiffness * -p1(1) * 1.0 / len * dir_norm;
+        out_df.rows(c1.nr * 3, c1.nr * 3 + 3).col(c1.nr * 3 + 2) += spring.stiffness * -p1(2) * 1.0 / len * dir_norm;
+
+        out_df.col(c1.nr * 3)[c1.nr * 3] += -force / len;// f * v_n' -> f * v' / len
+        out_df.col(c1.nr * 3 + 1)[c1.nr * 3 + 1] += -force / len;
+        out_df.col(c1.nr * 3 + 2)[c1.nr * 3 + 2] += -force / len;
+
+        out_df.rows(c1.nr * 3, c1.nr * 3 + 3).col(c1.nr * 3) += -force * -p1(0) * 1.0 / (len * len) * dir_norm;// f * v_n' -> - f * -x_i / len^2 * v_n
+        out_df.rows(c1.nr * 3, c1.nr * 3 + 3).col(c1.nr * 3 + 1) += -force * -p1(1) * 1.0 / (len * len) * dir_norm;
+        out_df.rows(c1.nr * 3, c1.nr * 3 + 3).col(c1.nr * 3 + 2) += -force * -p1(2) * 1.0 / (len * len) * dir_norm;
+      }
+      if (c2.type == Connector::MASS) {
+        out_df.rows(c2.nr * 3, c2.nr * 3 + 3).col(c2.nr * 3) -= spring.stiffness * p2(0) * 1.0 / len * dir_norm;
+        out_df.rows(c2.nr * 3, c2.nr * 3 + 3).col(c2.nr * 3 + 1) -= spring.stiffness * p2(1) * 1.0 / len * dir_norm;
+        out_df.rows(c2.nr * 3, c2.nr * 3 + 3).col(c2.nr * 3 + 2) -= spring.stiffness * p2(2) * 1.0 / len * dir_norm;
+        
+        out_df.col(c2.nr * 3)[c2.nr * 3] -= force / len;
+        out_df.col(c2.nr * 3 + 1)[c2.nr * 3 + 1] -= force / len;
+        out_df.col(c2.nr * 3 + 2)[c2.nr * 3 + 2] -= force / len;
+
+        out_df.rows(c2.nr * 3, c2.nr * 3 + 3).col(c2.nr * 3) -= -force * p2(0) * 1.0 / (len * len) * dir_norm;
+        out_df.rows(c2.nr * 3, c2.nr * 3 + 3).col(c2.nr * 3 + 1) -= -force * p2(1) * 1.0 / (len * len) * dir_norm;
+        out_df.rows(c2.nr * 3, c2.nr * 3 + 3).col(c2.nr * 3 + 2) -= -force * p2(2) * 1.0 / (len * len) * dir_norm;
+      }
+    }
+
+    size_t constraint_index = 0;
+    for (auto distanceConstraint : mss.distanceConstraints()) {
+      auto [c1,c2] = distanceConstraint.connectors;
+      Vec<D> p1, p2;
+      if (c1.type == Connector::FIX)
+        p1 = mss.fixes()[c1.nr].pos;
+      else
+        p1 = xmat.row(c1.nr);
+      if (c2.type == Connector::FIX)
+        p2 = mss.fixes()[c2.nr].pos;
+      else
+        p2 = xmat.row(c2.nr);
+      
+      
+      Vec<D> dir = p2 - p1;
+      double len = norm(dir);
+      Vec<D> dir_norm = 1.0 / len * dir;
+      double lambda = in_x[constraint_index + mss.masses().size() * D];
+
+      if (c1.type == Connector::MASS) {
+        out_df.col(c1.nr * 3)[c1.nr * 3] += -lambda / len;// lambda * v_n' -> lambda * v' / len
+        out_df.col(c1.nr * 3 + 1)[c1.nr * 3 + 1] += -lambda / len;
+        out_df.col(c1.nr * 3 + 2)[c1.nr * 3 + 2] += -lambda / len;
+
+        out_df.rows(c1.nr * 3, c1.nr * 3 + 3).col(c1.nr * 3) += -lambda * -p1(0) * 1.0 / (len * len) * dir_norm;// lambda * v_n' -> - lambda * -x_i / len^2 * v_n
+        out_df.rows(c1.nr * 3, c1.nr * 3 + 3).col(c1.nr * 3 + 1) += -lambda * -p1(1) * 1.0 / (len * len) * dir_norm;
+        out_df.rows(c1.nr * 3, c1.nr * 3 + 3).col(c1.nr * 3 + 2) += -lambda * -p1(2) * 1.0 / (len * len) * dir_norm;
+
+        out_df.rows(c1.nr * 3, c1.nr * 3 + 3).col(constraint_index + mss.masses().size() * D) += dir_norm; //lambda' * v_n
+      }
+      if (c2.type == Connector::MASS) {
+        out_df.col(c2.nr * 3)[c2.nr * 3] -= lambda / len;// lambda * v_n' -> lambda * v' / len
+        out_df.col(c2.nr * 3 + 1)[c2.nr * 3 + 1] -= lambda / len;
+        out_df.col(c2.nr * 3 + 2)[c2.nr * 3 + 2] -= lambda / len;
+
+        out_df.rows(c2.nr * 3, c2.nr * 3 + 3).col(c2.nr * 3) -= -lambda * p2(0) * 1.0 / (len * len) * dir_norm;// lambda * v_n' -> - lambda * -x_i / len^2 * v_n
+        out_df.rows(c2.nr * 3, c2.nr * 3 + 3).col(c2.nr * 3 + 1) -= -lambda * p2(1) * 1.0 / (len * len) * dir_norm;
+        out_df.rows(c2.nr * 3, c2.nr * 3 + 3).col(c2.nr * 3 + 2) -= -lambda * p2(2) * 1.0 / (len * len) * dir_norm;
+        
+        out_df.rows(c2.nr * 3, c2.nr * 3 + 3).col(constraint_index + mss.masses().size() * D) -= dir_norm; //lambda' * v_n
+      }
+
+      out_df.cols(c1.nr * 3, c1.nr * 3 + 3).row(constraint_index + mss.masses().size() * D) = 1.0 / len * -p1;
+      out_df.cols(c2.nr * 3, c2.nr * 3 + 3).row(constraint_index + mss.masses().size() * D) = 1.0 / len * p2;
+
+      constraint_index += 1;
+    }
+
+    // acceleration a=F/m
+    for (size_t i = 0; i < mss.masses().size(); i++)
+      out_df.row(i) *= 1.0/mss.masses()[i].mass;
+  }
+
+  /*//calculates the first force derivative
   virtual void evaluateDeriv (VectorView<double> in_x, MatrixView<double> out_df) const override
   {
     // TODO: exact differentiation
@@ -304,7 +409,7 @@ public:
         evaluate (xr, fr);
         out_df.col(i) = 1/(2*eps) * (fr-fl);
       }
-  }
+  }*/
   
 };
 
