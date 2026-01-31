@@ -73,10 +73,17 @@ PYBIND11_MODULE(mass_spring, m) {
                              [](Spring & s) { return s.connectors; })
       ;
 
+    py::class_<DistanceConstraint> (m, "DistanceConstraint")
+      .def(py::init<double, std::array<Connector,2>>())
+      .def_property_readonly("connectors",
+                             [](DistanceConstraint & s) { return s.connectors; })
+      ;
+
     
     py::bind_vector<std::vector<Mass<3>>>(m, "Masses3d");
     py::bind_vector<std::vector<Fix<3>>>(m, "Fixes3d");
     py::bind_vector<std::vector<Spring>>(m, "Springs");        
+    py::bind_vector<std::vector<DistanceConstraint>>(m, "DistanceConstraints");     
     
     
     py::class_<MassSpringSystem<2>> (m, "MassSpringSystem2d")
@@ -97,37 +104,64 @@ PYBIND11_MODULE(mass_spring, m) {
       .def("add", [](MassSpringSystem<3> & mss, Mass<3> m) { return mss.addMass(m); })
       .def("add", [](MassSpringSystem<3> & mss, Fix<3> f) { return mss.addFix(f); })
       .def("add", [](MassSpringSystem<3> & mss, Spring s) { return mss.addSpring(s); })
+      .def("add", [](MassSpringSystem<3> & mss, DistanceConstraint s) { return mss.addDistanceConstraint(s); })
       .def_property_readonly("masses", [](MassSpringSystem<3> & mss) -> auto& { return mss.masses(); })
       .def_property_readonly("fixes", [](MassSpringSystem<3> & mss) -> auto& { return mss.fixes(); })
       .def_property_readonly("springs", [](MassSpringSystem<3> & mss) -> auto& { return mss.springs(); })
+      .def_property_readonly("distance_constraints", [](MassSpringSystem<3> & mss) -> auto& { return mss.distanceConstraints(); })
       .def("__getitem__", [](MassSpringSystem<3> mss, Connector & c) {
         if (c.type==Connector::FIX) return py::cast(mss.fixes()[c.nr]);
         else return py::cast(mss.masses()[c.nr]);
       })
       
       .def("getState", [] (MassSpringSystem<3> & mss) {
-        Vector<> x(3*mss.masses().size());
-        Vector<> dx(3*mss.masses().size());
-        Vector<> ddx(3*mss.masses().size());
+        Vector<> x(mss.get_state_vec_size());
+        Vector<> dx(mss.get_state_vec_size());
+        Vector<> ddx(mss.get_state_vec_size());
         mss.getState (x, dx, ddx);
         return std::vector<double>(x);
       })
 
-      .def("simulate", [](MassSpringSystem<3> & mss, double tend, size_t steps) {
+      /*.def("simulate", [](MassSpringSystem<3> & mss, double tend, size_t steps) {
         Vector<> x(3*mss.masses().size());
         Vector<> dx(3*mss.masses().size());
         Vector<> ddx(3*mss.masses().size());
-        mss.getState (x, dx, ddx);
+        mss.getState (x, dx, ddx); //retrieve the system information (pos, vel, acc)
 
-        auto mss_func = std::make_shared<MSS_Function<3>> (mss);
-        auto mass = std::make_shared<IdentityFunction> (x.size());
+        auto mss_func = std::make_shared<MSS_Function<3>> (mss); // right side of the ode, =:forces
+        auto mass = std::make_shared<IdentityFunction> (x.size()); // mass (M) matrix
 
+        //solve the ode to update all the values (pos, vel, acc)
+        //tend: length of simulation
+        //steps: step count
+        //rho?
+        //x, dx, ddx, pos, vel, acc (mutated)
+        //mass_func: rhs, force
+        //mass: M matrix 
         SolveODE_Alpha(tend, steps, 0.8, x, dx, ddx, mss_func, mass);
 
-        mss.setState (x, dx, ddx);  
-    });
+        mss.setState (x, dx, ddx); //store the system information
+      });*/
 
+      .def("simulate", [](MassSpringSystem<3> & mss, double tend, size_t steps) {
+        Vector<> x(mss.get_state_vec_size());
+        Vector<> dx(mss.get_state_vec_size());
+        Vector<> ddx(mss.get_state_vec_size());
+        mss.getState (x, dx, ddx); //retrieve the system information (pos, vel, acc)
 
-  
-    
+        auto mss_func = std::make_shared<MSS_Function<3>> (mss); // right side of the ode, =:forces
+        auto mass = std::make_shared<PartialIdentityFunction> (mss.get_state_vec_size(), 3 * mss.masses().size()); // mass (M) matrix
+
+        //solve the ode to update all the values (pos, vel, acc)
+        //tend: length of simulation
+        //steps: step count
+        //rho?
+        //x, dx, ddx, pos, vel, acc (mutated)
+        //mass_func: rhs, force
+        //mass: M matrix 
+        SolveODE_Alpha(tend, steps, 0.8, x, dx, ddx, mss_func, mass);
+
+        mss.setState (x, dx, ddx); //store the system information
+      });
+
 }

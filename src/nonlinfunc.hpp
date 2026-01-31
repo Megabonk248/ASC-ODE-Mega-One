@@ -41,6 +41,27 @@ namespace ASC_ode
     }
   };
 
+  class PartialIdentityFunction : public NonlinearFunction
+  {
+    size_t m_n;
+    size_t m_size;
+  public:
+    PartialIdentityFunction (size_t size, size_t n) : m_size(size), m_n(n) { } 
+    size_t dimX() const override { return m_size; }
+    size_t dimF() const override { return m_size; }
+    void evaluate (VectorView<double> x, VectorView<double> f) const override
+    {
+      f = 0.0;
+      f.range(0, m_n) = x.range(0, m_n);
+    }
+
+    void evaluateDeriv (VectorView<double> x, MatrixView<double> df) const override
+    {
+      df = 0.0;
+      df.diag().range(0, m_n) = 1.0;
+    }
+  };
+
 
 
   class ConstantFunction : public NonlinearFunction

@@ -55,6 +55,14 @@
 
 
   // Generalized alpha method for M d^2x/dt^2 = rhs
+  // t-end: the simulation duration
+  // steps: step count
+  // rhoinf spectral radius parameter (?)
+  // x: inital pos, outputs new position
+  // x': initial vel, outputs new velocity
+  // x'': inital acc, outputs the new acceleration
+  // rhs: z.B. forces
+  // mass: mass matrix
   void SolveODE_Alpha (double tend, int steps, double rhoinf,
                        VectorView<double> x, VectorView<double> dx, VectorView<double> ddx,
                        std::shared_ptr<NonlinearFunction> rhs,   

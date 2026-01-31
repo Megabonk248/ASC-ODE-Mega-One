@@ -62,8 +62,8 @@ public:
 
 int main()
 {
-  double tend = 4*3.141592*10;
-  int steps = 10000;
+  double tend = 4*3.141592*1;
+  int steps = 100;
   double tau = tend/steps;
 
   Vector<> y = { 1, 0 };  // initializer list
