@@ -3,6 +3,7 @@
 
 #include <nonlinfunc.hpp>
 #include <timestepper.hpp>
+#include <array>
 
 using namespace ASC_ode;
 
